@@ -44,8 +44,10 @@ public class TestSRL {
 
     @Test
     public void testExecute() {
-        final String testString = "A squirrel is storing a lot of nuts to prepare for a seasonal change in the environment.";
-        String results = this.service.execute(testString);
+        final String testString = "In order to succeed, we must first believe that we can.";
+
+        Data data = new Data(Uri.TEXT, testString);
+        String results = this.service.execute(data.asJson());
         System.out.println(results);
     }
 }
