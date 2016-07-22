@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: edu.illinois.cs.cogcomp:wordnet:1.0-binary">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/edu/illinois/cs/cogcomp/wordnet/1.0-binary/wordnet-1.0-binary.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/edu/illinois/cs/cogcomp/wordnet/1.0-binary/wordnet-1.0-binary-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/edu/illinois/cs/cogcomp/wordnet/1.0-binary/wordnet-1.0-binary-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
