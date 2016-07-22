@@ -1,8 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="war" name="Illinois SRL:war">
-    <output-path>$PROJECT_DIR$/target</output-path>
-    <root id="archive" name="lappsgrid_illinoissrl-1.0-SNAPSHOT.war">
-      <element id="artifact" artifact-name="Illinois SRL:war exploded" />
-    </root>
-  </artifact>
-</component>
