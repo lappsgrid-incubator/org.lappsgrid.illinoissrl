@@ -4,19 +4,28 @@ package org.lappsgrid.illinoissrl;
 import edu.illinois.cs.cogcomp.core.datastructures.textannotation.*;
 import edu.illinois.cs.cogcomp.core.utilities.configuration.ResourceManager;
 import edu.illinois.cs.cogcomp.srl.SemanticRoleLabeler;
+import edu.illinois.cs.cogcomp.srl.core.SRLType;
 import edu.illinois.cs.cogcomp.srl.experiment.TextPreProcessor;
 import org.lappsgrid.api.ProcessingService;
 import org.lappsgrid.discriminator.Discriminators;
 import org.lappsgrid.serialization.Data;
 import org.lappsgrid.serialization.DataContainer;
 import org.lappsgrid.serialization.Serializer;
-import org.lappsgrid.serialization.lif.*;
+import org.lappsgrid.serialization.lif.Annotation;
+import org.lappsgrid.serialization.lif.Container;
 import org.lappsgrid.serialization.lif.View;
 
 import java.io.IOException;
 import java.util.*;
 
 public class IllinoisSRL implements ProcessingService {
+    Comparator<Relation> relationComparator = new Comparator<Relation>() {
+        @Override
+        public int compare(Relation arg0, Relation arg1) {
+            return arg0.getRelationName().compareTo(arg1.getRelationName());
+        }
+    };
+
     public IllinoisSRL() {
     }
 
@@ -29,6 +38,7 @@ public class IllinoisSRL implements ProcessingService {
 
     @Override
     public String execute(String input) {
+
         // Step #1: Parse the input.
         Data data = Serializer.parse(input, Data.class);
 
@@ -44,11 +54,9 @@ public class IllinoisSRL implements ProcessingService {
         if (discriminator.equals(Discriminators.Uri.TEXT)) {
             container = new Container();
             container.setText(data.getPayload().toString());
-        }
-        else if (discriminator.equals(Discriminators.Uri.LAPPS)) {
+        } else if (discriminator.equals(Discriminators.Uri.LAPPS)) {
             container = new Container((Map) data.getPayload());
-        }
-        else {
+        } else {
             // This is a format we don't accept.
             String message = String.format("Unsupported discriminator type: %s", discriminator);
             return new Data<String>(Discriminators.Uri.ERROR, message).asJson();
@@ -56,110 +64,71 @@ public class IllinoisSRL implements ProcessingService {
 
         String text = container.getText();
 
+
+        // loading SRL configuration file
         try {
             rm = new ResourceManager("config/srl-config.properties");
-        } catch (IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
-            String s = "";
-            return null;
-        }
-
-        SemanticRoleLabeler nomSRL, verbSRL;
-        try {
-            nomSRL = new SemanticRoleLabeler(rm, "Nom", true);
-            verbSRL = new SemanticRoleLabeler(rm, "Verb", true);
-        } catch (Exception e){
-            e.printStackTrace();
-            return null;
+            String message = "Unable to load SRL configuration file.";
+            return new Data<>(Discriminators.Uri.ERROR, message).asJson();
         }
 
 
-        TextAnnotation ta;
-        try {
-            ta = TextPreProcessor.getInstance().preProcessText(text);
-        } catch (Exception e){
-            e.printStackTrace();
-            return null;
-        }
-
-        PredicateArgumentView p1, p2;
-        try {
-            p1 = nomSRL.getSRL(ta);
-        } catch (Exception e){
-            e.printStackTrace();
-            return null;
-        }
-
-
-        try {
-            p2 = verbSRL.getSRL(ta);
-        } catch (Exception e){
-            e.printStackTrace();
-            return null;
-        }
-
-        org.lappsgrid.serialization.lif.View view = new View();
-        view.addContains(Discriminators.Uri.JSON, this.getClass().getName(), "Nom SRL");
-        List<Constituent> predicates = new ArrayList<>(p1.getPredicates());
-        Collections.sort(predicates, TextAnnotationUtilities.constituentStartComparator);
-        for (Constituent predicate : predicates){
-            System.out.println(p1.getPredicateLemma(predicate));
-            Annotation a = new Annotation(p1.getPredicateLemma(predicate), 0, 0);
-
-            List<Relation> outgoingRelations = new ArrayList<>(predicate.getOutgoingRelations());
-
-            Collections.sort(outgoingRelations, new Comparator<Relation>() {
-
-                @Override
-                public int compare(Relation arg0, Relation arg1) {
-                    return arg0.getRelationName().compareTo(arg1.getRelationName());
-                }
-            });
-
-            for (Relation r : outgoingRelations) {
-                Constituent target = r.getTarget();
-                System.out.println(r.getRelationName());
-                System.out.println(target.getTokenizedSurfaceForm());
-
-                a.addFeature(r.getRelationName(), target.getTokenizedSurfaceForm());
+        // types are Nom SRL and Verb SRL
+        for (SRLType type : SRLType.values()) {
+            // loading the SRL
+            SemanticRoleLabeler srl;
+            try {
+                srl = new SemanticRoleLabeler(rm, type.name(), true);
+            } catch (Exception e) {
+                e.printStackTrace();
+                String message = "Unable to load the semantic role labeler.";
+                return new Data<>(Discriminators.Uri.ERROR, message).asJson();
             }
-            view.add(a);
-        }
-        container.addView(view);
 
-        view = new View();
-        view.addContains(Discriminators.Uri.JSON, this.getClass().getName(), "Verb SRL");
-        predicates = new ArrayList<>(p2.getPredicates());
-        Collections.sort(predicates, TextAnnotationUtilities.constituentStartComparator);
-        for (Constituent predicate : predicates){
-            System.out.println(p2.getPredicateLemma(predicate));
-            Annotation a = new Annotation(p2.getPredicateLemma(predicate), 0, 0);
-
-            List<Relation> outgoingRelations = new ArrayList<>(predicate.getOutgoingRelations());
-
-            Collections.sort(outgoingRelations, new Comparator<Relation>() {
-
-                @Override
-                public int compare(Relation arg0, Relation arg1) {
-                    return arg0.getRelationName().compareTo(arg1.getRelationName());
-                }
-            });
-
-            for (Relation r : outgoingRelations) {
-                Constituent target = r.getTarget();
-                System.out.println(r.getRelationName());
-                System.out.println(target.getTokenizedSurfaceForm());
-
-                a.addFeature(r.getRelationName(), target.getTokenizedSurfaceForm());
+            // Process the input text
+            TextAnnotation ta;
+            try {
+                ta = TextPreProcessor.getInstance().preProcessText(text);
+            } catch (Exception e) {
+                e.printStackTrace();
+                String message = "Unable to process the input text.";
+                return new Data<>(Discriminators.Uri.ERROR, message).asJson();
             }
-            view.add(a);
-        }
-        container.addView(view);
+
+            // Labeling the semantic roles
+            PredicateArgumentView pav;
+            try {
+                pav = srl.getSRL(ta);
+            } catch (Exception e) {
+                e.printStackTrace();
+                String message = "Unable to label the semantic roles.";
+                return new Data<>(Discriminators.Uri.ERROR, message).asJson();
+            }
+
+            // get a new view to hold annotations
+            org.lappsgrid.serialization.lif.View view = new View();
+            view.addContains(Discriminators.Uri.JSON, this.getClass().getName(), type.name() + " SRL");
+
+            // add annotations to view
+            List<Constituent> predicates = new ArrayList<>(pav.getPredicates());
+            Collections.sort(predicates, TextAnnotationUtilities.constituentStartComparator);
+            for (Constituent predicate : predicates) {
+                Annotation a = new Annotation(pav.getPredicateLemma(predicate), 0, 0);
+
+                List<Relation> outgoingRelations = new ArrayList<>(predicate.getOutgoingRelations());
+                Collections.sort(outgoingRelations, relationComparator);
+                for (Relation r : outgoingRelations) {
+                    Constituent target = r.getTarget();
+                    a.addFeature(r.getRelationName(), target.getTokenizedSurfaceForm());
+                }
+                view.add(a);
+            }
+            container.addView(view);
+        } // end processing one type of SRL
+
         data = new DataContainer(container);
-
-        System.out.println(p1);
-        System.out.println(p2);
-
 
         return data.asPrettyJson();
     }
