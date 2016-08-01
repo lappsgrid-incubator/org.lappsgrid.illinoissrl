@@ -115,7 +115,11 @@ public class IllinoisSRL implements ProcessingService {
             List<Constituent> predicates = new ArrayList<>(pav.getPredicates());
             Collections.sort(predicates, TextAnnotationUtilities.constituentStartComparator);
             for (Constituent predicate : predicates) {
-                Annotation a = new Annotation(pav.getPredicateLemma(predicate), 0, 0);
+
+                int start = predicate.getStartCharOffset();
+                int end = predicate.getEndCharOffset();
+
+                Annotation a = new Annotation(pav.getPredicateLemma(predicate), start, end);
 
                 List<Relation> outgoingRelations = new ArrayList<>(predicate.getOutgoingRelations());
                 Collections.sort(outgoingRelations, relationComparator);
