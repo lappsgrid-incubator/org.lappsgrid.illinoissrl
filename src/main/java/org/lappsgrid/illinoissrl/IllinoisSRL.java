@@ -14,6 +14,7 @@ import org.lappsgrid.serialization.Serializer;
 import org.lappsgrid.serialization.lif.Annotation;
 import org.lappsgrid.serialization.lif.Container;
 import org.lappsgrid.serialization.lif.View;
+import org.lappsgrid.vocabulary.Features;
 
 import java.io.IOException;
 import java.util.*;
@@ -119,14 +120,27 @@ public class IllinoisSRL implements ProcessingService {
                 int start = predicate.getStartCharOffset();
                 int end = predicate.getEndCharOffset();
 
-                Annotation a = new Annotation(pav.getPredicateLemma(predicate), start, end);
+                Annotation a = new Annotation(Discriminators.Uri.ANNOTATION, start, end);
+
+                a.addFeature("head", pav.getPredicateLemma(predicate));
+
+                HashMap<String, Annotation> relationToTokens = new HashMap<>();
 
                 List<Relation> outgoingRelations = new ArrayList<>(predicate.getOutgoingRelations());
                 Collections.sort(outgoingRelations, relationComparator);
                 for (Relation r : outgoingRelations) {
                     Constituent target = r.getTarget();
-                    a.addFeature(r.getRelationName(), target.getTokenizedSurfaceForm());
+                    //a.addFeature(r.getRelationName(), target.getTokenizedSurfaceForm());
+
+                    int targetStart = target.getStartCharOffset();
+                    int targetEnd = target.getEndCharOffset();
+                    Annotation targetAnnotation = new Annotation(Discriminators.Uri.CHUNK, targetStart, targetEnd);
+                    targetAnnotation.addFeature(Features.Token.WORD, target.getTokenizedSurfaceForm());
+
+                    relationToTokens.put(r.getRelationName(), targetAnnotation);
                 }
+
+                a.addFeature("arguments", relationToTokens);
                 view.add(a);
             }
             container.addView(view);
