@@ -66,6 +66,7 @@ public class IllinoisSRL implements ProcessingService {
         String text = container.getText();
 
 
+        // TODO Move ths to the constructor if possible.
         // loading SRL configuration file
         try {
             rm = new ResourceManager("config/srl-config.properties");
@@ -81,6 +82,9 @@ public class IllinoisSRL implements ProcessingService {
             // loading the SRL
             SemanticRoleLabeler srl;
             try {
+                //TODO Move this to the constructor as well.
+                // You will likely need to create two SemanticRoleLabeler objects,
+                // one for Nom SRL and one for the Verb SRL.
                 srl = new SemanticRoleLabeler(rm, type.name(), true);
             } catch (Exception e) {
                 e.printStackTrace();
