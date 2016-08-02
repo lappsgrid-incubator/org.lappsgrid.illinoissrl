@@ -4,11 +4,13 @@ package org.lappsgrid.illinoissrl;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
 import static org.junit.Assert.*;
 
 // more APIs for testing code
 import org.lappsgrid.api.WebService;
 import static org.lappsgrid.discriminator.Discriminators.Uri;
+
 import org.lappsgrid.metadata.IOSpecification;
 import org.lappsgrid.metadata.ServiceMetadata;
 import org.lappsgrid.serialization.Data;
