@@ -54,13 +54,11 @@
         </plugins>
     </build>
     <dependencies>
-        <!--
-        <dependency>
+<!--        <dependency>
             <groupId>org.lappsgrid</groupId>
             <artifactId>all</artifactId>
             <version>2.3.1</version>
-        </dependency>
-        -->
+        </dependency>-->
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>

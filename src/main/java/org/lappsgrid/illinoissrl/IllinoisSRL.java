@@ -4,7 +4,6 @@ package org.lappsgrid.illinoissrl;
 import edu.illinois.cs.cogcomp.core.datastructures.textannotation.*;
 import edu.illinois.cs.cogcomp.core.utilities.configuration.ResourceManager;
 import edu.illinois.cs.cogcomp.srl.SemanticRoleLabeler;
-import edu.illinois.cs.cogcomp.srl.core.SRLType;
 import edu.illinois.cs.cogcomp.srl.experiment.TextPreProcessor;
 import org.lappsgrid.api.ProcessingService;
 import org.lappsgrid.discriminator.Discriminators;
@@ -16,7 +15,6 @@ import org.lappsgrid.serialization.lif.Container;
 import org.lappsgrid.serialization.lif.View;
 import org.lappsgrid.vocabulary.Features;
 
-import java.io.IOException;
 import java.util.*;
 
 public class IllinoisSRL implements ProcessingService {
@@ -27,15 +25,19 @@ public class IllinoisSRL implements ProcessingService {
         }
     };
 
-    public IllinoisSRL() {
+    private ResourceManager rm;
+    private SemanticRoleLabeler nomSRL, verbSRL;
+
+    public IllinoisSRL() throws Exception{
+        this.rm = new ResourceManager("config/srl-config.properties");
+        this.nomSRL = new SemanticRoleLabeler(rm, "Nom", true);
+        this.verbSRL = new SemanticRoleLabeler(rm, "Verb", true);
     }
 
     @Override
     public String getMetadata() {
         return null;
     }
-
-    private ResourceManager rm;
 
     @Override
     public String execute(String input) {
@@ -51,7 +53,7 @@ public class IllinoisSRL implements ProcessingService {
         }
 
         // Step #3: Extract the text.
-        Container container = null;
+        Container container;
         if (discriminator.equals(Discriminators.Uri.TEXT)) {
             container = new Container();
             container.setText(data.getPayload().toString());
@@ -60,37 +62,16 @@ public class IllinoisSRL implements ProcessingService {
         } else {
             // This is a format we don't accept.
             String message = String.format("Unsupported discriminator type: %s", discriminator);
-            return new Data<String>(Discriminators.Uri.ERROR, message).asJson();
+            return new Data<>(Discriminators.Uri.ERROR, message).asJson();
         }
 
         String text = container.getText();
 
 
-        // TODO Move ths to the constructor if possible.
-        // loading SRL configuration file
-        try {
-            rm = new ResourceManager("config/srl-config.properties");
-        } catch (IOException e) {
-            e.printStackTrace();
-            String message = "Unable to load SRL configuration file.";
-            return new Data<>(Discriminators.Uri.ERROR, message).asJson();
-        }
 
-
-        // types are Nom SRL and Verb SRL
-        for (SRLType type : SRLType.values()) {
-            // loading the SRL
-            SemanticRoleLabeler srl;
-            try {
-                //TODO Move this to the constructor as well.
-                // You will likely need to create two SemanticRoleLabeler objects,
-                // one for Nom SRL and one for the Verb SRL.
-                srl = new SemanticRoleLabeler(rm, type.name(), true);
-            } catch (Exception e) {
-                e.printStackTrace();
-                String message = "Unable to load the semantic role labeler.";
-                return new Data<>(Discriminators.Uri.ERROR, message).asJson();
-            }
+        SemanticRoleLabeler[] srls = {nomSRL, verbSRL};
+        for (int i = 0; i < srls.length; i++) {
+            SemanticRoleLabeler srl = srls[i];
 
             // Process the input text
             TextAnnotation ta;
@@ -113,39 +94,58 @@ public class IllinoisSRL implements ProcessingService {
             }
 
             // get a new view to hold annotations
-            org.lappsgrid.serialization.lif.View view = new View();
-            view.addContains(Discriminators.Uri.JSON, this.getClass().getName(), type.name() + " SRL");
+            View view = new View();
 
-            // add annotations to view
+            if (i == 0) {
+                view.setId("nom");
+            }
+            if (i == 1) {
+                view.setId("verb");
+            }
+            view.addContains(Discriminators.Uri.SEMANTIC_ROLE, this.getClass().getName(), "srl:uiuc");
+
+            // adding annotations to nom view or verb view
+            // get and sort the heads of each semantic role
             List<Constituent> predicates = new ArrayList<>(pav.getPredicates());
             Collections.sort(predicates, TextAnnotationUtilities.constituentStartComparator);
-            for (Constituent predicate : predicates) {
 
+            int numOfNodes = predicates.size();
+            for (int j = 0; j < numOfNodes; j++) { // for each head (node)
+                Constituent predicate = predicates.get(i);
                 int start = predicate.getStartCharOffset();
                 int end = predicate.getEndCharOffset();
 
-                Annotation a = new Annotation(Discriminators.Uri.ANNOTATION, start, end);
+                // annotation for head
+                Annotation a = new Annotation(view.getId() + '-' + j, "Role", start, end);
+                a.setAtType(Discriminators.Uri.SEMANTIC_ROLE);
+                a.addFeature(Features.SemanticRole.HEAD, pav.getPredicateLemma(predicate));
 
-                a.addFeature("head", pav.getPredicateLemma(predicate));
-
-                HashMap<String, Annotation> relationToTokens = new HashMap<>();
-
+                // get and sort arguments for the head
                 List<Relation> outgoingRelations = new ArrayList<>(predicate.getOutgoingRelations());
                 Collections.sort(outgoingRelations, relationComparator);
-                for (Relation r : outgoingRelations) {
-                    Constituent target = r.getTarget();
-                    //a.addFeature(r.getRelationName(), target.getTokenizedSurfaceForm());
 
-                    int targetStart = target.getStartCharOffset();
-                    int targetEnd = target.getEndCharOffset();
-                    Annotation targetAnnotation = new Annotation(Discriminators.Uri.CHUNK, targetStart, targetEnd);
-                    targetAnnotation.addFeature(Features.Token.WORD, target.getTokenizedSurfaceForm());
+                List<String> arguments = new ArrayList<>();
+                view.add(a);
 
-                    relationToTokens.put(r.getRelationName(), targetAnnotation);
+                int numOfArguments = outgoingRelations.size();
+                for (int k = 0; k < numOfArguments; k++) { // for each argument
+                    Relation r = outgoingRelations.get(k);
+                    Constituent argument = r.getTarget();
+
+                    String relationName = r.getRelationName();
+                    arguments.add(relationName); // getting names for arguments to add to the head annotation
+
+                    int argStart = argument.getStartCharOffset();
+                    int argEnd = argument.getEndCharOffset();
+
+                    // annotation for the argument
+                    Annotation argAnnotation = new Annotation(a.getId() + "-f" + k, relationName, argStart, argEnd);
+                    argAnnotation.setAtType(Discriminators.Uri.MARKABLE);
+                    argAnnotation.addFeature(Discriminators.Uri.TEXT, argument.getTokenizedSurfaceForm());
+                    view.add(argAnnotation);
                 }
 
-                a.addFeature("arguments", relationToTokens);
-                view.add(a);
+                a.addFeature(Features.SemanticRole.ARGUMENT, arguments);
             }
             container.addView(view);
         } // end processing one type of SRL
