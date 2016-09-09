@@ -5,8 +5,11 @@ import edu.illinois.cs.cogcomp.core.datastructures.textannotation.*;
 import edu.illinois.cs.cogcomp.core.utilities.configuration.ResourceManager;
 import edu.illinois.cs.cogcomp.srl.SemanticRoleLabeler;
 import edu.illinois.cs.cogcomp.srl.experiment.TextPreProcessor;
+import org.apache.axis.Version;
 import org.lappsgrid.api.ProcessingService;
 import org.lappsgrid.discriminator.Discriminators;
+import org.lappsgrid.metadata.IOSpecification;
+import org.lappsgrid.metadata.ServiceMetadata;
 import org.lappsgrid.serialization.Data;
 import org.lappsgrid.serialization.DataContainer;
 import org.lappsgrid.serialization.Serializer;
@@ -27,16 +30,39 @@ public class IllinoisSRL implements ProcessingService {
 
     private ResourceManager rm;
     private SemanticRoleLabeler nomSRL, verbSRL;
+    private String metadata;
 
     public IllinoisSRL() throws Exception{
         this.rm = new ResourceManager("config/srl-config.properties");
         this.nomSRL = new SemanticRoleLabeler(rm, "Nom", true);
         this.verbSRL = new SemanticRoleLabeler(rm, "Verb", true);
+
+        ServiceMetadata md = new ServiceMetadata();
+
+        md.setName(this.getClass().getName());
+        md.setAllow(Discriminators.Uri.ANY);
+        md.setDescription("UIUC Part of Speech Tagger");
+        md.setVendor("http://www.lappsgrid.org");
+        md.setLicense(Discriminators.Uri.APACHE2);
+
+        IOSpecification requires = new IOSpecification();
+        requires.addFormat(Discriminators.Uri.TEXT);
+        requires.addLanguage("en");
+
+        IOSpecification produces = new IOSpecification();
+        produces.addFormat(Discriminators.Uri.LAPPS);
+        produces.addLanguage("en");
+
+        md.setRequires(requires);
+        md.setProduces(produces);
+
+        Data<ServiceMetadata> data = new Data<>(Discriminators.Uri.META, md);
+        metadata = data.asPrettyJson();
     }
 
     @Override
     public String getMetadata() {
-        return null;
+        return metadata;
     }
 
     @Override
@@ -133,13 +159,14 @@ public class IllinoisSRL implements ProcessingService {
                     Constituent argument = r.getTarget();
 
                     String relationName = r.getRelationName();
-                    arguments.add(relationName); // getting names for arguments to add to the head annotation
+                    String relationId = a.getId() + "-f" + k;
+                    arguments.add(relationId); // getting id for arguments to add to the head annotation
 
                     int argStart = argument.getStartCharOffset();
                     int argEnd = argument.getEndCharOffset();
 
                     // annotation for the argument
-                    Annotation argAnnotation = new Annotation(a.getId() + "-f" + k, relationName, argStart, argEnd);
+                    Annotation argAnnotation = new Annotation(relationId, relationName, argStart, argEnd);
                     argAnnotation.setAtType(Discriminators.Uri.MARKABLE);
                     argAnnotation.addFeature(Discriminators.Uri.TEXT, argument.getTokenizedSurfaceForm());
                     view.add(argAnnotation);
