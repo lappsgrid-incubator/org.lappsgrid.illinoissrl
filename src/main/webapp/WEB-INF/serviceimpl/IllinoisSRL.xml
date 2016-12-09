@@ -4,7 +4,7 @@
   <bean id="target" class="jp.go.nict.langrid.servicecontainer.handler.TargetServiceFactory" >
     <property name="service">
       <!-- CHANGE HERE -->
-      <bean class="org.lappsgrid.edison.IllinoisSRL"/>
+      <bean class="org.lappsgrid.illinoissrl.IllinoisSRL"/>
     </property>
   </bean>
 </beans>
