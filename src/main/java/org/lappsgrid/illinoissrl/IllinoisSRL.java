@@ -5,7 +5,6 @@ import edu.illinois.cs.cogcomp.core.datastructures.textannotation.*;
 import edu.illinois.cs.cogcomp.core.utilities.configuration.ResourceManager;
 import edu.illinois.cs.cogcomp.srl.SemanticRoleLabeler;
 import edu.illinois.cs.cogcomp.srl.experiment.TextPreProcessor;
-import org.apache.axis.Version;
 import org.lappsgrid.api.ProcessingService;
 import org.lappsgrid.discriminator.Discriminators;
 import org.lappsgrid.metadata.IOSpecification;
@@ -18,6 +17,7 @@ import org.lappsgrid.serialization.lif.Container;
 import org.lappsgrid.serialization.lif.View;
 import org.lappsgrid.vocabulary.Features;
 
+import java.net.URL;
 import java.util.*;
 
 public class IllinoisSRL implements ProcessingService {
@@ -33,7 +33,8 @@ public class IllinoisSRL implements ProcessingService {
     private String metadata;
 
     public IllinoisSRL() throws Exception{
-        this.rm = new ResourceManager("config/srl-config.properties");
+        URL url = this.getClass().getResource("/config/srlconfig.properties");
+        this.rm = new ResourceManager(url.getPath());
         this.nomSRL = new SemanticRoleLabeler(rm, "Nom", true);
         this.verbSRL = new SemanticRoleLabeler(rm, "Verb", true);
 
@@ -41,7 +42,7 @@ public class IllinoisSRL implements ProcessingService {
 
         md.setName(this.getClass().getName());
         md.setAllow(Discriminators.Uri.ANY);
-        md.setDescription("UIUC Part of Speech Tagger");
+        md.setDescription("UIUC Semantic Role Labeler");
         md.setVendor("http://www.lappsgrid.org");
         md.setLicense(Discriminators.Uri.APACHE2);
 
